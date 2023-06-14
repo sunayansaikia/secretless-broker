@@ -183,26 +183,25 @@ func maybeSetAmzEndpoint(req *gohttp.Request, reqMeta *requestMetadata) error {
 	shouldSetEndpoint := req.URL.Scheme == "http" &&
 		req.URL.Host == "secretless.empty"
 
-	if !shouldSetEndpoint {
+	if shouldSetEndpoint {
+		endpoint, err := endpoints.DefaultResolver().EndpointFor(
+			reqMeta.serviceName,
+			reqMeta.region,
+		)
+		if err != nil {
+			return err
+		}
+
+		endpointURL, err := url.Parse(endpoint.URL)
+		if err != nil {
+			return err
+		}
+		req.URL.Scheme = "https" //endpointURL.Scheme
+		req.URL.Host = endpointURL.Host
+		req.Host = endpointURL.Hostname()
 		return nil
 	}
-
-	endpoint, err := endpoints.DefaultResolver().EndpointFor(
-		reqMeta.serviceName,
-		reqMeta.region,
-	)
-	if err != nil {
-		return err
-	}
-
-	endpointURL, err := url.Parse(endpoint.URL)
-	if err != nil {
-		return err
-	}
-
-	req.URL.Scheme = endpointURL.Scheme
-	req.URL.Host = endpointURL.Host
-	req.Host = endpointURL.Hostname()
-
+	// force https even if incoming scheme is http, since it's observed that if incoming custom scheme is https, things do not work. Incoming scheme always have to be http.
+	req.URL.Scheme = "https" //endpointURL.Scheme
 	return nil
 }
